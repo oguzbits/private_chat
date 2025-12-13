@@ -1,31 +1,44 @@
 'use client'
 
-import { useRef } from 'react'
+import { useUsername } from '@/hooks/use-username'
+import { client } from '@/lib/client'
+import { useMutation } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
-const formatTimeRemaining = (timeRemainingInSec: number) => {
-  const minutes = Math.floor(timeRemainingInSec / 60)
-  const seconds = timeRemainingInSec % 60
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`
+function formatTimeRemaining(seconds: number) {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
 const Page = () => {
-  const { roomId } = useParams()
+  const params = useParams()
+  const roomId = params.roomId as string
 
+  const { username } = useUsername()
   const [input, setInput] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const [copyStatus, setCopyStatus] = useState('COPY')
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
 
+  const { mutate: sendMessage, isPending } = useMutation({
+    mutationFn: async ({ text }: { text: string }) => {
+      await client.messages.post(
+        { sender: username, text },
+        { query: { roomId } }
+      )
+
+      setInput('')
+    },
+  })
+
   const copyToClipboard = () => {
     const url = window.location.href
     navigator.clipboard.writeText(url)
     setCopyStatus('COPIED!')
-    setTimeout(() => {
-      setCopyStatus('COPY')
-    }, 2000)
+    setTimeout(() => setCopyStatus('COPY'), 2000)
   }
 
   return (
@@ -75,7 +88,6 @@ const Page = () => {
       {/* MESSAGES */}
       <div className="scrollbar-thin flex-1 space-y-4 overflow-y-auto p-4"></div>
 
-      {/* MESSAGE INPUT */}
       <div className="border-t border-zinc-800 bg-zinc-900/30 p-4">
         <div className="flex gap-4">
           <div className="group relative flex-1">
@@ -88,7 +100,8 @@ const Page = () => {
               value={input}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && input.trim()) {
-                  // SEND MESSAGE
+                  sendMessage({ text: input })
+                  inputRef.current?.focus()
                 }
               }}
               placeholder="Type message..."
@@ -99,8 +112,10 @@ const Page = () => {
 
           <button
             onClick={() => {
-              // SEND MESSAGE
+              sendMessage({ text: input })
+              inputRef.current?.focus()
             }}
+            disabled={!input.trim() || isPending}
             className="cursor-pointer bg-zinc-800 px-6 text-sm font-bold text-zinc-400 transition-all hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
             SEND

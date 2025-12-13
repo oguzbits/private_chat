@@ -17,8 +17,8 @@ const Page = () => {
 export default Page
 
 function Lobby() {
-  const router = useRouter()
   const { username } = useUsername()
+  const router = useRouter()
 
   const { mutate: createRoom } = useMutation({
     mutationFn: async () => {
