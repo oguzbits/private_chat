@@ -2,9 +2,11 @@
 
 import { useUsername } from '@/hooks/use-username'
 import { client } from '@/lib/client'
-import { useMutation } from '@tanstack/react-query'
-import { useParams } from 'next/navigation'
-import { useRef, useState } from 'react'
+import { useRealtime } from '@/lib/realtime-client'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { format } from 'date-fns'
+import { useParams, useRouter } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
 
 function formatTimeRemaining(seconds: number) {
   const mins = Math.floor(seconds / 60)
@@ -16,12 +18,55 @@ const Page = () => {
   const params = useParams()
   const roomId = params.roomId as string
 
+  const router = useRouter()
+
   const { username } = useUsername()
   const [input, setInput] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const [copyStatus, setCopyStatus] = useState('COPY')
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
+
+  const { data: ttlData } = useQuery({
+    queryKey: ['ttl', roomId],
+    queryFn: async () => {
+      const res = await client.room.ttl.get({ query: { roomId } })
+      return res.data
+    },
+  })
+
+  useEffect(() => {
+    if (ttlData?.ttl !== undefined) setTimeRemaining(ttlData.ttl)
+  }, [ttlData])
+
+  useEffect(() => {
+    if (timeRemaining === null || timeRemaining < 0) return
+
+    if (timeRemaining === 0) {
+      router.push('/?destroyed=true')
+      return
+    }
+
+    const interval = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [timeRemaining, router])
+
+  const { data: messages, refetch } = useQuery({
+    queryKey: ['messages', roomId],
+    queryFn: async () => {
+      const res = await client.messages.get({ query: { roomId } })
+      return res.data
+    },
+  })
 
   const { mutate: sendMessage, isPending } = useMutation({
     mutationFn: async ({ text }: { text: string }) => {
@@ -34,7 +79,27 @@ const Page = () => {
     },
   })
 
-  const copyToClipboard = () => {
+  useRealtime({
+    channels: [roomId],
+    events: ['chat.message', 'chat.destroy'],
+    onData: ({ event }) => {
+      if (event === 'chat.message') {
+        refetch()
+      }
+
+      if (event === 'chat.destroy') {
+        router.push('/?destroyed=true')
+      }
+    },
+  })
+
+  const { mutate: destroyRoom } = useMutation({
+    mutationFn: async () => {
+      await client.room.delete(null, { query: { roomId } })
+    },
+  })
+
+  const copyLink = () => {
     const url = window.location.href
     navigator.clipboard.writeText(url)
     setCopyStatus('COPIED!')
@@ -43,16 +108,17 @@ const Page = () => {
 
   return (
     <main className="flex h-screen max-h-screen flex-col overflow-hidden">
+      {/* HEADER */}
       <header className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/30 p-4">
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
             <span className="text-xs text-zinc-500 uppercase">Room ID</span>
             <div className="flex items-center gap-2">
               <span className="truncate font-bold text-green-500">
-                {roomId?.slice(0, 10) + '...'}
+                {roomId.slice(0, 10) + '...'}
               </span>
               <button
-                onClick={copyToClipboard}
+                onClick={copyLink}
                 className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
               >
                 {copyStatus}
@@ -79,15 +145,52 @@ const Page = () => {
             </span>
           </div>
         </div>
-        <button className="group flex items-center gap-2 rounded bg-zinc-800 px-3 py-1.5 text-xs font-bold text-zinc-400 transition-all hover:bg-red-600 hover:text-white disabled:opacity-50">
+
+        <button
+          onClick={() => destroyRoom()}
+          className="group flex items-center gap-2 rounded bg-zinc-800 px-3 py-1.5 text-xs font-bold text-zinc-400 transition-all hover:bg-red-600 hover:text-white disabled:opacity-50"
+        >
           <span className="group-hover:animate-pulse">💣</span>
           DESTROY NOW
         </button>
       </header>
 
       {/* MESSAGES */}
-      <div className="scrollbar-thin flex-1 space-y-4 overflow-y-auto p-4"></div>
+      <div className="scrollbar-thin flex-1 space-y-4 overflow-y-auto p-4">
+        {messages?.messages.length === 0 && (
+          <div className="flex h-full items-center justify-center">
+            <p className="font-mono text-sm text-zinc-600">
+              No messages yet, start the conversation.
+            </p>
+          </div>
+        )}
 
+        {messages?.messages.map((msg) => (
+          <div key={msg.id} className="flex flex-col items-start">
+            <div className="group max-w-[80%]">
+              <div className="mb-1 flex items-baseline gap-3">
+                <span
+                  className={`text-xs font-bold ${
+                    msg.sender === username ? 'text-green-500' : 'text-blue-500'
+                  }`}
+                >
+                  {msg.sender === username ? 'YOU' : msg.sender}
+                </span>
+
+                <span className="text-[10px] text-zinc-600">
+                  {format(msg.timestamp, 'HH:mm')}
+                </span>
+              </div>
+
+              <p className="text-sm leading-relaxed break-all text-zinc-300">
+                {msg.text}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* INPUT */}
       <div className="border-t border-zinc-800 bg-zinc-900/30 p-4">
         <div className="flex gap-4">
           <div className="group relative flex-1">
