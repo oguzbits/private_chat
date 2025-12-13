@@ -50,7 +50,7 @@ function Lobby() {
               </label>
 
               <div className="flex items-center gap-3">
-                <div className="flex-1 border border-zinc-800 bg-zinc-950 p-3 font-mono text-sm text-zinc-400">
+                <div className="flex h-12 flex-1 items-center border border-zinc-800 bg-zinc-950 px-3 font-mono text-sm text-zinc-400">
                   {username}
                 </div>
               </div>
