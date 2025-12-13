@@ -1,8 +1,8 @@
-import { nanoid } from "nanoid"
-import { useEffect, useState } from "react"
+import { nanoid } from 'nanoid'
+import { useEffect, useState } from 'react'
 
-const ANIMALS = ["wolf", "hawk", "bear", "shark"]
-const STORAGE_KEY = "chat_username"
+const ANIMALS = ['wolf', 'hawk', 'bear', 'shark']
+const STORAGE_KEY = 'chat_username'
 
 const generateUsername = () => {
   const word = ANIMALS[Math.floor(Math.random() * ANIMALS.length)]
@@ -10,7 +10,7 @@ const generateUsername = () => {
 }
 
 export const useUsername = () => {
-  const [username, setUsername] = useState("")
+  const [username, setUsername] = useState('')
 
   useEffect(() => {
     const main = () => {
