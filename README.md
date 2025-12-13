@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# private_chat
+
+A secure, private, and self-destructing chat room application built with Next.js 16, Elysia, and Upstash.
+
+## Features
+
+- 🔒 **Private Rooms**: Generate unique, secure room links instantly.
+- ⏱️ **Self-Destructing**: Rooms automatically expire and delete all data after 10 minutes.
+- 👥 **Capacity Limited**: Rooms are limited to 2 participants for true private one-on-one conversations.
+- ⚡ **Real-time Messaging**: Instant chat powered by Upstash Realtime and Redis.
+- 🚫 **No Trace**: History and metadata are completely wiped upon room modification/destruction.
+- 💅 **Modern UI**: Clean, dark-themed interface built with Tailwind CSS v4.
+
+## Tech Stack
+
+- **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
+- **API Engine**: [Elysia](https://elysiajs.com/) (adapted for Next.js)
+- **Database**: [Upstash Redis](https://upstash.com/)
+- **Realtime**: [Upstash Realtime](https://upstash.com/)
+- **Type Safety**: TypeScript & Zod
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 18+
+- An [Upstash](https://upstash.com/) account (Redis database required)
+
+### Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+```env
+UPSTASH_REDIS_REST_URL=your_upstash_redis_url
+UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_token
+NEXT_PUBLIC_APP_URL=your_app_url
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> Note: The application uses `@upstash/redis` and `@upstash/realtime`. Ensure your database is correctly configured.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Installation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Clone the repository:**
 
-## Learn More
+   ```bash
+   git clone <repository-url>
+   cd private_chat
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+2. **Install dependencies:**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```bash
+   npm install
+   # or
+   pnpm install
+   # or
+   bun install
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. **Run the development server:**
 
-## Deploy on Vercel
+   ```bash
+   npm run dev
+   # or
+   bun dev
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+4. **Access the app:**
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## How It Works
+
+1. **Lobby**: Provides a button to create a new secure room.
+2. **Room Creation**: Generates a random room ID and initializes metadata in Redis with a 10-minute TTL (Time To Live).
+3. **Joining**: Users joining via the link are authenticated anonymously.
+4. **Messaging**: Messages are pushed to Redis and broadcasted via Upstash Realtime.
+5. **Expiration**: The room and all its contents are automatically evited from Redis after the TTL expires.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
