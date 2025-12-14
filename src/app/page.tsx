@@ -2,6 +2,7 @@
 
 import { useUsername } from '@/hooks/use-username'
 import { client } from '@/lib/client'
+import { generateKey } from '@/lib/encryption'
 import { useMutation } from '@tanstack/react-query'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
@@ -29,7 +30,8 @@ function Lobby() {
       const res = await client.room.create.post()
 
       if (res.status === 200) {
-        router.push(`/room/${res.data?.roomId}`)
+        const key = generateKey()
+        router.push(`/room/${res.data?.roomId}#${key}`)
       }
     },
   })

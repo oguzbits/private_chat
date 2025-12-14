@@ -7,6 +7,30 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
+import { decrypt, encrypt } from '@/lib/encryption'
+
+const DecryptedMessage = ({
+  text,
+  encryptionKey,
+}: {
+  text: string
+  encryptionKey: string | null
+}) => {
+  const [decrypted, setDecrypted] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!encryptionKey) {
+      setDecrypted(text)
+      return
+    }
+    decrypt(text, encryptionKey).then((res) => {
+      if (res) setDecrypted(res)
+      else setDecrypted(text)
+    })
+  }, [text, encryptionKey])
+
+  return <>{decrypted || <span className="animate-pulse">...</span>}</>
+}
 
 function formatTimeRemaining(seconds: number) {
   const mins = Math.floor(seconds / 60)
@@ -26,6 +50,14 @@ const Page = () => {
 
   const [copyStatus, setCopyStatus] = useState('COPY')
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
+  const [encryptionKey, setEncryptionKey] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#', '')
+      if (hash) setEncryptionKey(hash)
+    }
+  }, [])
 
   const { data: ttlData } = useQuery({
     queryKey: ['ttl', roomId],
@@ -70,8 +102,12 @@ const Page = () => {
 
   const { mutate: sendMessage, isPending } = useMutation({
     mutationFn: async ({ text }: { text: string }) => {
+      const encrypted = encryptionKey
+        ? await encrypt(text, encryptionKey)
+        : text
+
       await client.messages.post(
-        { sender: username, text },
+        { sender: username, text: encrypted },
         { query: { roomId } }
       )
 
@@ -183,7 +219,10 @@ const Page = () => {
               </div>
 
               <p className="text-sm leading-relaxed break-all text-zinc-300">
-                {msg.text}
+                <DecryptedMessage
+                  text={msg.text}
+                  encryptionKey={encryptionKey}
+                />
               </p>
             </div>
           </div>
