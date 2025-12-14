@@ -30,8 +30,7 @@ function Lobby() {
       const res = await client.room.create.post()
 
       if (res.status === 200) {
-        const key = generateKey()
-        router.push(`/room/${res.data?.roomId}#${key}`)
+        router.push(`/room/${res.data?.roomId}#${generateKey()}`)
       }
     },
   })
@@ -60,6 +59,24 @@ function Lobby() {
             <p className="text-sm font-bold text-red-500">ROOM FULL</p>
             <p className="mt-1 text-xs text-zinc-500">
               This room is at maximum capacity.
+            </p>
+          </div>
+        )}
+        {error === 'missing-key' && (
+          <div className="border border-red-900 bg-red-950/50 p-4 text-center">
+            <p className="text-sm font-bold text-red-500">CHECK URL</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              The encryption key is missing from the link.
+            </p>
+          </div>
+        )}
+        {error === 'invalid-key' && (
+          <div className="border border-red-900 bg-red-950/50 p-4 text-center">
+            <p className="text-sm font-bold text-red-500">
+              INVALID ENCRYPTION KEY
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              The encryption key provided in the URL seems to be wrong.
             </p>
           </div>
         )}

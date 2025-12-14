@@ -2,12 +2,12 @@
 
 import { useUsername } from '@/hooks/use-username'
 import { client } from '@/lib/client'
+import { decrypt, encrypt } from '@/lib/encryption'
 import { useRealtime } from '@/lib/realtime-client'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { decrypt, encrypt } from '@/lib/encryption'
 
 const DecryptedMessage = ({
   text,
@@ -16,20 +16,46 @@ const DecryptedMessage = ({
   text: string
   encryptionKey: string | null
 }) => {
-  const [decrypted, setDecrypted] = useState<string | null>(null)
+  const { data: decrypted } = useQuery({
+    queryKey: ['decrypted', text, encryptionKey],
+    queryFn: async () => {
+      if (!encryptionKey) return null
+      return await decrypt(text, encryptionKey)
+    },
+    staleTime: Infinity,
+    retry: false,
+  })
 
-  useEffect(() => {
-    if (!encryptionKey) {
-      setDecrypted(text)
-      return
-    }
-    decrypt(text, encryptionKey).then((res) => {
-      if (res) setDecrypted(res)
-      else setDecrypted(text)
-    })
-  }, [text, encryptionKey])
+  // Case 1: No key provided - should theoretically not happen if we redirect,
+  // but good for safety or during transition
+  if (!encryptionKey) {
+    return (
+      <span className="flex items-center gap-1 text-zinc-500 italic">
+        Encrypted Content
+      </span>
+    )
+  }
 
-  return <>{decrypted || <span className="animate-pulse">...</span>}</>
+  // Case 2: Key provided but decryption failed
+  if (decrypted === null && encryptionKey) {
+    return (
+      <div className="flex items-start gap-2 rounded bg-red-500/10 p-2 text-xs text-red-500/80">
+        <div className="flex flex-col">
+          <span className="font-bold">Decryption Failed</span>
+          <span className="opacity-80">
+            The key provided cannot decrypt this message.
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  // Case 3: Success
+  return (
+    <span className="wrap-break-word whitespace-pre-wrap">
+      {decrypted || <span className="animate-pulse">...</span>}
+    </span>
+  )
 }
 
 function formatTimeRemaining(seconds: number) {
@@ -53,11 +79,26 @@ const Page = () => {
   const [encryptionKey, setEncryptionKey] = useState<string | null>(null)
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '')
-      if (hash) setEncryptionKey(hash)
+      if (hash) {
+        if (hash.length !== 64) {
+          router.push('/?error=invalid-key')
+        } else {
+          setEncryptionKey(hash)
+        }
+      } else {
+        router.push('/?error=missing-key')
+      }
     }
-  }, [])
+
+    // Initial check
+    handleHashChange()
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [router])
 
   const { data: ttlData } = useQuery({
     queryKey: ['ttl', roomId],
@@ -144,7 +185,6 @@ const Page = () => {
 
   return (
     <main className="flex h-screen max-h-screen flex-col overflow-hidden">
-      {/* HEADER */}
       <header className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/30 p-4">
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
@@ -218,18 +258,17 @@ const Page = () => {
                 </span>
               </div>
 
-              <p className="text-sm leading-relaxed break-all text-zinc-300">
+              <div className="text-sm leading-relaxed break-all text-zinc-300">
                 <DecryptedMessage
                   text={msg.text}
                   encryptionKey={encryptionKey}
                 />
-              </p>
+              </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* INPUT */}
       <div className="border-t border-zinc-800 bg-zinc-900/30 p-4">
         <div className="flex gap-4">
           <div className="group relative flex-1">
@@ -246,9 +285,12 @@ const Page = () => {
                   inputRef.current?.focus()
                 }
               }}
-              placeholder="Type message..."
+              placeholder={
+                encryptionKey ? 'Type message...' : 'Checking encryption...'
+              }
               onChange={(e) => setInput(e.target.value)}
-              className="w-full border border-zinc-800 bg-black py-3 pr-4 pl-8 text-sm text-zinc-100 transition-colors placeholder:text-zinc-700 focus:border-zinc-700 focus:outline-none"
+              disabled={!encryptionKey}
+              className="w-full border border-zinc-800 bg-black py-3 pr-4 pl-8 text-sm text-zinc-100 transition-colors placeholder:text-zinc-700 focus:border-zinc-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
 
@@ -257,7 +299,7 @@ const Page = () => {
               sendMessage({ text: input })
               inputRef.current?.focus()
             }}
-            disabled={!input.trim() || isPending}
+            disabled={!input.trim() || isPending || !encryptionKey}
             className="cursor-pointer bg-zinc-800 px-6 text-sm font-bold text-zinc-400 transition-all hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
             SEND
