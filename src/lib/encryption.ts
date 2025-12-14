@@ -1,3 +1,6 @@
+// Generates a random 256-bit key for zero-knowledge client-side encryption.
+// This key is used to encrypt/decrypt messages locally and is never sent to the server,
+// ensuring that even the server owner cannot read the chats.
 export const generateKey = (): string => {
   if (typeof window === 'undefined') return ''
   const arr = new Uint8Array(32) // 256 bits
@@ -7,6 +10,8 @@ export const generateKey = (): string => {
     .join('')
 }
 
+// Converts a hexadecimal string to a CryptoKey for AES-GCM encryption.
+// This function is used to convert the generated key into a format that can be used by the Web Crypto API.
 const getCryptoKey = async (keyHex: string): Promise<CryptoKey> => {
   const keyBuffer = new Uint8Array(
     keyHex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))
@@ -20,6 +25,8 @@ const getCryptoKey = async (keyHex: string): Promise<CryptoKey> => {
   )
 }
 
+// Encrypts a text using AES-GCM encryption with a given key.
+// The function returns the encrypted text as a hexadecimal string.
 export const encrypt = async (
   text: string,
   keyHex: string
@@ -45,6 +52,8 @@ export const encrypt = async (
   return `${ivHex}:${encryptedHex}`
 }
 
+// Decrypts an encrypted text using AES-GCM decryption with a given key.
+// The function returns the decrypted text as a string.
 export const decrypt = async (
   encryptedText: string,
   keyHex: string
