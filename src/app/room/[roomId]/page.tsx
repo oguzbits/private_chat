@@ -100,6 +100,12 @@ const Page = () => {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [router])
 
+  useEffect(() => {
+    if (encryptionKey && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [encryptionKey])
+
   const { data: ttlData } = useQuery({
     queryKey: ['ttl', roomId],
     queryFn: async () => {
@@ -276,6 +282,7 @@ const Page = () => {
               {'>'}
             </span>
             <input
+              ref={inputRef}
               autoFocus
               type="text"
               value={input}
